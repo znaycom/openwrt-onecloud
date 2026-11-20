@@ -139,7 +139,7 @@ jobs:
         curl -s https://raw.githubusercontent.com/immortalwrt/immortalwrt/master/config/Config-kernel.in > openwrt/config/Config-kernel.in
         sed -i 's#https://git\.openwrt\.org/feed#https://github.com/openwrt#g; s#https://git\.openwrt\.org/project#https://github.com/openwrt#g' openwrt/feeds.conf.default
         cd openwrt
-        find ./staging_dir/ -name '*' -exec touch {} \; >/dev/null 2>&1
+        find ./staging_dir/ -name '*' -exec touch {} \; >/dev/null 2>&1 || true
         ./scripts/feeds update -a
         cd ..
         [ -e patch ] && cp -rf patch/target openwrt

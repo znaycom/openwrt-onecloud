@@ -113,8 +113,11 @@ jobs:
         
     - name: 添加玩客云
       run: |
-        git clone https://shiyu1314:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/shiyu1314/s805 -b 6.12 openwrt/target/linux/amlogic
-         
+        git clone https://github.com/lxhao61/onecloud-openwrt -b lienol-2512 --depth 1 /tmp/onecloud-target
+        rm -rf openwrt/target/linux/amlogic
+        cp -a /tmp/onecloud-target/target/linux/amlogic openwrt/target/linux/amlogic
+        rm -rf /tmp/onecloud-target
+
     - name: 加载自定义配置
       run: |
         [ -e files ] && mv files openwrt/files

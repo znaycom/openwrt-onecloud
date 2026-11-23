@@ -162,6 +162,21 @@ jobs:
         rm -rf openwrt/target/linux/amlogic
         cp -a /tmp/onecloud-target/target/linux/amlogic openwrt/target/linux/amlogic
         rm -rf /tmp/onecloud-target
+        cat > openwrt/target/linux/amlogic/image/boot.txt <<'EOF'
+        setenv condev "console=ttyAML0,115200n8 no_console_suspend consoleblank=0"
+        setenv kernel_loadaddr "0x00208000"
+        setenv dtb_loadaddr "0x21800000"
+        setenv dtb_name "dtb"
+        setenv boot_start "bootm ${kernel_loadaddr} - ${dtb_loadaddr}"
+        if fatload mmc 0 ${kernel_loadaddr} uImage && fatload mmc 0 ${dtb_loadaddr} ${dtb_name}; then
+            setenv bootargs "root=/dev/mmcblk0p2 rootwait ro ${condev} fsck.repair=yes net.ifnames=0"
+            run boot_start
+        fi
+        if fatload mmc 1 ${kernel_loadaddr} uImage && fatload mmc 1 ${dtb_loadaddr} ${dtb_name}; then
+            setenv bootargs "root=/dev/mmcblk1p2 rootwait ro ${condev} fsck.repair=yes net.ifnames=0"
+            run boot_start
+        fi
+        EOF
 
     - name: 加载自定义配置
       run: |
@@ -222,7 +237,7 @@ jobs:
         rm -rf openwrt/bin/targets/*/*/*.img
         rm -rf openwrt/bin/targets/*/*/*.gz
         cd openwrt/bin/targets/*/*
-        mv *.xz ${{ env.REPO_BRANCH }}-k6.12-onecloud_burn.img.xz
+        mv *.xz ${{ env.REPO_BRANCH }}-k6.12-onecloud_sdcard.img.xz
         rm -rf packages
         rm -rf *.buildinfo
         rm -rf profiles.json

@@ -160,3 +160,22 @@ echo "          |__|" >> package/base-files/files/etc/banner
 echo " -----------------------------------------------------" >> package/base-files/files/etc/banner
 echo "         %D ${date} by $OP_author                     " >> package/base-files/files/etc/banner
 echo " -----------------------------------------------------" >> package/base-files/files/etc/banner
+
+# ============ 集成 OpenClash（官方 25.12 feed 依赖齐全，无需额外源）============
+git clone -b master --depth 1 https://github.com/vernesong/OpenClash /tmp/OpenClash
+cp -a /tmp/OpenClash/luci-app-openclash package/luci-app-openclash
+rm -rf /tmp/OpenClash
+
+# ============ 预置 Meta 内核 + 分流数据（固化进固件，开机即用）============
+mkdir -p "$GITHUB_WORKSPACE/files/etc/openclash/core"
+MIHOMO_TAG=$(curl -sL "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+if [ -n "$MIHOMO_TAG" ]; then
+  curl -fL --retry 3 -o /tmp/mihomo.gz "https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_TAG}/mihomo-linux-armv7-${MIHOMO_TAG}.gz" \
+    && gunzip -f /tmp/mihomo.gz \
+    && mv /tmp/mihomo "$GITHUB_WORKSPACE/files/etc/openclash/core/clash_meta" \
+    && chmod +x "$GITHUB_WORKSPACE/files/etc/openclash/core/clash_meta" \
+    && echo "OK: Meta内核已预置 (${MIHOMO_TAG})"
+fi
+curl -fL --retry 3 -o "$GITHUB_WORKSPACE/files/etc/openclash/GeoIP.dat" "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geoip.dat" || echo "WARN: GeoIP.dat 下载失败"
+curl -fL --retry 3 -o "$GITHUB_WORKSPACE/files/etc/openclash/GeoSite.dat" "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat" || echo "WARN: GeoSite.dat 下载失败"
+curl -fL --retry 3 -o "$GITHUB_WORKSPACE/files/etc/openclash/Country.mmdb" "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb" || echo "WARN: Country.mmdb 下载失败"

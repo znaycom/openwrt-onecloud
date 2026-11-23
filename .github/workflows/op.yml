@@ -14,7 +14,7 @@ on:
       OP_IP:
         description: '静态IP地址'     
         required: false
-        default: '192.168.2.2' 
+        default: '192.168.1.200' 
         type: string
 
       OP_rootfs:
@@ -32,7 +32,7 @@ on:
       CUSTOM_PLUGINS:
         description: '自定义插件名称，用空格分隔'
         required: false
-        default: 'luci-app-dockerman luci-theme-m3e luci-app-ttyd luci-app-diskman luci-app-hd-idle luci-app-momo luci-app-samba4 luci-app-openlist2'
+        default: 'luci-app-openclash luci-compat kmod-tun kmod-nft-tproxy kmod-inet-diag luci-theme-m3e luci-app-ttyd luci-app-diskman'
         type: string
 
 env:
@@ -230,21 +230,37 @@ jobs:
     - name: 整理文件
       id: organize
       run: |
+        curl -fL -o AmlImg https://raw.githubusercontent.com/znaycom/onecloud-openwrt/main/AmlImg
+        curl -fL -o uboot.img https://raw.githubusercontent.com/znaycom/onecloud-openwrt/main/uboot.img
+        chmod +x AmlImg
         gunzip openwrt/bin/targets/*/*/*.gz
-        for f in openwrt/bin/targets/*/*/*.img; do
-          xz -9 --threads=0 --compress "$f"
-        done
-        rm -rf openwrt/bin/targets/*/*/*.img
-        rm -rf openwrt/bin/targets/*/*/*.gz
-        cd openwrt/bin/targets/*/*
-        mv *.xz ${{ env.REPO_BRANCH }}-k6.12-onecloud_sdcard.img.xz
-        rm -rf packages
-        rm -rf *.buildinfo
-        rm -rf profiles.json
-        rm -rf *.manifest
-        rm -rf *.sha
-        rm -rf sha256sums
+        DISKIMG=$(ls -1 openwrt/bin/targets/*/*/*.img | head -n 1)
+        ./AmlImg unpack ./uboot.img burn/
+        ROOTFS_MB=$(grep CONFIG_TARGET_ROOTFS_PARTSIZE openwrt/.config | cut -d= -f2)
+        dd if=/dev/zero of=rootfs_new.img bs=1M count=${ROOTFS_MB} status=none
+        mkfs.ext4 -F rootfs_new.img
+        loop=$(sudo losetup --find --show --partscan "$DISKIMG" | sed 's/[^[:print:]]//g')
+        sudo mkdir -p xd img
+        sudo mount rootfs_new.img xd
+        sudo mount "${loop}p2" img
+        sudo cp -rp img/* xd/
+        sudo sync
+        sudo umount xd img || true
+        rm -rf xd img
+        sudo img2simg "${loop}p1" burn/boot.simg
+        sudo img2simg rootfs_new.img burn/rootfs.simg
+        rm -f rootfs_new.img
+        sudo losetup -d "$loop" || true
+        printf "PARTITION:boot:sparse:boot.simg\nPARTITION:rootfs:sparse:rootfs.simg\n" >> burn/commands.txt
+        ./AmlImg pack onecloud_burn.img burn/
+        rm -rf burn
+        xz -9 --threads=0 --compress "$DISKIMG"
+        mv "$DISKIMG.xz" ${{ env.REPO_BRANCH }}-k6.12-onecloud_sdcard.img.xz
+        xz -9 --threads=0 --compress onecloud_burn.img
+        mv onecloud_burn.img.xz ${{ env.REPO_BRANCH }}-k6.12-onecloud_burn.img.xz
+        rm -rf packages *.buildinfo profiles.json *.manifest sha256sums
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+
 
     - name: 上传固件到Releases
       uses: softprops/action-gh-release@v2.1.0
